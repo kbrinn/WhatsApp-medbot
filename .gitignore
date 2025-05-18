@@ -4,3 +4,4 @@
 app/configuration_settings.env
 # If you also use a standard .env file, add it too:
 .env
+.idea/
