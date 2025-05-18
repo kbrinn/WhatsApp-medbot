@@ -1,15 +1,16 @@
 # Third-party imports
 import openai
-from fastapi import FastAPI, Form, Depends, Request, HTTPException
 from decouple import config
+from fastapi import Depends, FastAPI, Form, HTTPException, Request
+
+# Relative imports since main.py is in the same directory as services
+from services.models.models import Conversation, SessionLocal
+from services.utils.utils import logger, send_message
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 # Internal imports
 
-# Relative imports since main.py is in the same directory as services
-from services.models.models import Conversation, SessionLocal
-from services.utils.utils import send_message, logger
 
 try:
     from twilio.request_validator import RequestValidator  # type: ignore
@@ -28,17 +29,18 @@ except Exception:  # pragma: no cover - fallback when twilio isn't installed
             data = url
             for key in sorted(params):
                 data += key + params[key]
-            digest = hmac.new(
-                self.token.encode(), data.encode(), hashlib.sha1
-            ).digest()
+            digest = hmac.new(self.token.encode(), data.encode(), hashlib.sha1).digest()
             return base64.b64encode(digest).decode()
 
         def validate(self, url: str, params: dict, signature: str) -> bool:
             expected = self.compute_signature(url, params)
             return hmac.compare_digest(expected, signature)
+
+
 from agents.medical_intake_agent import intake_agent
 
 app = FastAPI()
+
 
 # Dependency
 def get_db():
@@ -48,12 +50,14 @@ def get_db():
     finally:
         db.close()
 
+
 @app.post("/message")
 async def reply(request: Request, Body: str = Form(), db: Session = Depends(get_db)):
     try:
         # Extract the phone number from the incoming webhook request
         form_data = await request.form()
-        logger.info(f"Received form data: {dict(form_data)}")
+        message_id = form_data.get("MessageSid", "unknown")
+        logger.info("received_message", message_id=message_id)
 
         # Validate Twilio signature
         signature = request.headers.get("X-Twilio-Signature", "")
@@ -61,9 +65,10 @@ async def reply(request: Request, Body: str = Form(), db: Session = Depends(get_
         if not validator.validate(str(request.url), dict(form_data), signature):
             logger.warning("Invalid Twilio signature")
             raise HTTPException(status_code=403, detail="Invalid signature")
-        
-        whatsapp_number = form_data['From'].split("whatsapp:")[-1]
-        print(f"Sending the LangChain response to this number: {whatsapp_number}")
+
+        whatsapp_number = form_data["From"].split("whatsapp:")[-1]
+        masked_number = f"{whatsapp_number[:2]}***"
+        logger.info("send_response", to=masked_number)
 
         # Get the generated text from the LangChain agent
         langchain_response = intake_agent(Body)
@@ -71,17 +76,15 @@ async def reply(request: Request, Body: str = Form(), db: Session = Depends(get_
         # Store the conversation in the database
         try:
             conversation = Conversation(
-                sender=whatsapp_number,
-                message=Body,
-                response=langchain_response
-                )
+                sender=whatsapp_number, message=Body, response=langchain_response
+            )
             db.add(conversation)
             db.commit()
             logger.info(f"Conversation #{conversation.id} stored in database")
         except SQLAlchemyError as e:
             db.rollback()
             logger.error(f"Error storing conversation in database: {e}")
-        
+
         send_message(whatsapp_number, langchain_response)
         return ""
     except Exception as e:
