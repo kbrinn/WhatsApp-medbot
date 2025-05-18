@@ -1,6 +1,6 @@
 # Third-party imports
 import openai
-from fastapi import FastAPI, Form, Depends, Request
+from fastapi import FastAPI, Form, Depends, Request, HTTPException
 from decouple import config
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -10,6 +10,32 @@ from sqlalchemy.orm import Session
 # Relative imports since main.py is in the same directory as services
 from services.models.models import Conversation, SessionLocal
 from services.utils.utils import send_message, logger
+
+try:
+    from twilio.request_validator import RequestValidator  # type: ignore
+except Exception:  # pragma: no cover - fallback when twilio isn't installed
+    import base64
+    import hashlib
+    import hmac
+
+    class RequestValidator:  # type: ignore
+        """Simple fallback implementation of Twilio's RequestValidator."""
+
+        def __init__(self, token: str):
+            self.token = token
+
+        def compute_signature(self, url: str, params: dict) -> str:
+            data = url
+            for key in sorted(params):
+                data += key + params[key]
+            digest = hmac.new(
+                self.token.encode(), data.encode(), hashlib.sha1
+            ).digest()
+            return base64.b64encode(digest).decode()
+
+        def validate(self, url: str, params: dict, signature: str) -> bool:
+            expected = self.compute_signature(url, params)
+            return hmac.compare_digest(expected, signature)
 from agents.medical_intake_agent import intake_agent
 
 app = FastAPI()
@@ -28,6 +54,13 @@ async def reply(request: Request, Body: str = Form(), db: Session = Depends(get_
         # Extract the phone number from the incoming webhook request
         form_data = await request.form()
         logger.info(f"Received form data: {dict(form_data)}")
+
+        # Validate Twilio signature
+        signature = request.headers.get("X-Twilio-Signature", "")
+        validator = RequestValidator(config("TWILIO_AUTH_TOKEN"))
+        if not validator.validate(str(request.url), dict(form_data), signature):
+            logger.warning("Invalid Twilio signature")
+            raise HTTPException(status_code=403, detail="Invalid signature")
         
         whatsapp_number = form_data['From'].split("whatsapp:")[-1]
         print(f"Sending the LangChain response to this number: {whatsapp_number}")
