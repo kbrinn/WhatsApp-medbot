@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # FastAPI Application Service
+  app:
+    build:
+      context: .  # Use the Dockerfile in the current directory
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"  # Map host port 8000 to container port 8000
+    volumes:
+      - ./app:/app/app  # Mount your local 'app' directory into the container for development (optional for production)
+    environment:
+      # --- Database Connection Details for your FastAPI app ---
+      # The FastAPI app will connect to the 'db' service on port 5432
+      DATABASE_URL: "postgresql://myuser:mypassword@db:5432/mydatabase"
+      # Add any other environment variables your application needs
+      # PYTHONUNBUFFERED: 1 # Already set in Dockerfile, but can be set here too
+    depends_on:
+      - db # Ensure the database service starts before the app service
+    networks:
+      - app-network
+
+  # PostgreSQL Database Service
+  db:
+    image: postgres:15-alpine # Using a specific version of PostgreSQL (Alpine for smaller size)
+    ports:
+      - "5432:5432"  # Map host port 5432 to container port 5432 (for direct DB access if needed)
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mydatabase
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persist database data
+    networks:
+      - app-network
+
+volumes:
+  postgres_data: # Define a named volume for persistent PostgreSQL data
+
+networks:
+  app-network: # Define a custom network for services to communicate
+    driver: bridge

@@ -1,0 +1,6 @@
+# Other ignored files and directories...
+
+# Ignore environment configuration files
+app/configuration_settings.env
+# If you also use a standard .env file, add it too:
+.env
