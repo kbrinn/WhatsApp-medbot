@@ -13,7 +13,12 @@ services:
     environment:
       # --- Database Connection Details for your FastAPI app ---
       # The FastAPI app will connect to the 'db' service on port 5432
-      DATABASE_URL: "postgresql://myuser:mypassword@db:5432/mydatabase"
+      DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
       # Add any other environment variables your application needs
       # PYTHONUNBUFFERED: 1 # Already set in Dockerfile, but can be set here too
     depends_on:
@@ -27,9 +32,9 @@ services:
     ports:
       - "5432:5432"  # Map host port 5432 to container port 5432 (for direct DB access if needed)
     environment:
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
-      POSTGRES_DB: mydatabase
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data # Persist database data
     networks:
