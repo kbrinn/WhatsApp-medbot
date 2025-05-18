@@ -6,6 +6,7 @@ from fastapi import Depends, FastAPI, Form, HTTPException, Request
 # Relative imports since main.py is in the same directory as services
 from services.models.models import Conversation, SessionLocal
 from services.utils.utils import logger, send_message
+from services.secure_storage import store_conversation
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -73,10 +74,17 @@ async def reply(request: Request, Body: str = Form(), db: Session = Depends(get_
         # Get the generated text from the LangChain agent
         langchain_response = intake_agent(Body)
 
-        # Store the conversation in the database
+        # Store PHI in protected storage and only save a reference ID
+        reference_id = store_conversation(
+            whatsapp_number,
+            Body,
+            langchain_response,
+        )
         try:
             conversation = Conversation(
-                sender=whatsapp_number, message=Body, response=langchain_response
+                sender=whatsapp_number,
+                message=reference_id,
+                response=reference_id,
             )
             db.add(conversation)
             db.commit()
