@@ -1108,18 +1108,6 @@ telegram = ["requests"]
 notebook = ["ipywidgets (>=6)"]
 
 [[package]]
-name = "twilio"
-version = "8.13.0"
-description = "Twilio API client and TwiML generator"
-category = "main"
-optional = false
-python-versions = ">=3.7.0"
-
-[package.dependencies]
-aiohttp = ">=3.8.4"
-aiohttp-retry = ">=2.8.3"
-PyJWT = ">=2.0.0,<3.0.0"
-requests = ">=2.0.0"
 
 [[package]]
 name = "typing-extensions"
@@ -1312,7 +1300,6 @@ structlog = []
 tenacity = []
 tiktoken = []
 tqdm = []
-twilio = []
 typing-extensions = []
 typing-inspect = []
 typing-inspection = []
