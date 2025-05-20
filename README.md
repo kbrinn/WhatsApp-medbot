@@ -21,6 +21,9 @@ Required variables:
 - `TWILIO_ACCOUNT_SID` – Twilio account SID
 - `TWILIO_AUTH_TOKEN` – Twilio auth token
 - `TWILIO_PHONE_NUMBER` – Twilio phone number for messaging
+- `FB_VERIFY_TOKEN` – token used to verify Facebook webhook
+- `FB_ACCESS_TOKEN` – access token for the WhatsApp Business Cloud API
+- `FB_PHONE_NUMBER_ID` – Facebook phone number ID for sending messages
 
 ## Running with Docker Compose
 
