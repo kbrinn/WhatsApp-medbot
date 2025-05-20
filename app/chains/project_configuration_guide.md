@@ -15,7 +15,7 @@ See `.env.example` for all required environment variables.
 This bot uses:
 - FastAPI for the web framework
 - LangChain for AI/LLM orchestration
-- Twilio for WhatsApp integration
+- Meta's WhatsApp Business Cloud API for message delivery
 - PostgreSQL for data persistence
 - AWS services for medical transcription
 
