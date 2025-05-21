@@ -6,6 +6,8 @@ services:
     build:
       context: .  # Use the Dockerfile in the current directory
       dockerfile: Dockerfile
+    env_file:
+      - .env
     ports:
       - "8000:8000"  # Map host port 8000 to container port 8000
     volumes:
@@ -21,6 +23,7 @@ services:
       DB_NAME: ${DB_NAME}
       # Add any other environment variables your application needs
       # PYTHONUNBUFFERED: 1 # Already set in Dockerfile, but can be set here too
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     depends_on:
       - db # Ensure the database service starts before the app service
     networks:
@@ -29,6 +32,8 @@ services:
   # PostgreSQL Database Service
   db:
     image: postgres:15-alpine # Using a specific version of PostgreSQL (Alpine for smaller size)
+    env_file:
+      - .env
     ports:
       - "5432:5432"  # Map host port 5432 to container port 5432 (for direct DB access if needed)
     environment:
