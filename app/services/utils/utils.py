@@ -21,8 +21,8 @@ logger = structlog.get_logger()
 #            the agent result based on the received query
 #         """
 #         llm = OpenAI(model_name = "gpt-3.5-turbo", temperature=0, openai_api_key=config("OPENAI_API_KEY"))
-#         tools = load_tools(["wikipedia"], llm=llm)
-#         agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=False)
+#         tools_agent = load_tools(["wikipedia"], llm=llm)
+#         agent = initialize_agent(tools_agent, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=False)
 #         return agent.run(query)
 
 

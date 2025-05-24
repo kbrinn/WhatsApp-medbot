@@ -21,33 +21,6 @@ class LifestyleInfo(BaseModel):
     drug_type_and_frequency: Optional[str] = Field(None, description="Type and frequency of recreational drug use")
     exercise_habits: Optional[str] = Field(None, description="Describe exercise habits")
     diet_description: Optional[str] = Field(None, description="Describe typical diet")
-    # @root_validator(pre=False)  # 'pre=False' means it runs after individual field validation
-    # def check_conditional_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-    #     # Check tobacco fields
-    #     if not values.get('smoke_tobacco'):
-    #         if values.get('tobacco_quantity_per_day') is not None:
-    #             raise ValueError("tobacco_quantity_per_day must be None if smoke_tobacco is False")
-    #         if values.get('tobacco_duration_years') is not None:
-    #             raise ValueError("tobacco_duration_years must be None if smoke_tobacco is False")
-    #     # Alternatively, you could automatically set them to None instead of raising an error:
-    #     # if not values.get('smoke_tobacco'):
-    #     #     values['tobacco_quantity_per_day'] = None
-    #     #     values['tobacco_duration_years'] = None
-    #
-    #     # Check alcohol fields
-    #     if not values.get('drink_alcohol') and values.get('alcohol_drinks_per_week') is not None:
-    #         raise ValueError("alcohol_drinks_per_week must be None if drink_alcohol is False")
-    #         # Or: values['alcohol_drinks_per_week'] = None
-    #
-    #     # Check recreational drugs fields
-    #     if not values.get('recreational_drugs') and values.get('drug_type_and_frequency') is not None:
-    #         raise ValueError("drug_type_and_frequency must be None if recreational_drugs is False")
-    #         # Or: values['drug_type_and_frequency'] = None
-    #
-    #     return values
-    #
-
-
 
 class WomenHealthInfo(BaseModel):
     last_menstrual_period: Optional[str] = Field(None, description="Date of last menstrual period")

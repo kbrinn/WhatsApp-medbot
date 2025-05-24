@@ -1,4 +1,5 @@
 # Third-party imports
+import sys
 # Internal imports
 from agents.medical_intake_agent import intake_agent
 from decouple import config
@@ -13,6 +14,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 app = FastAPI()
+
+# Dependency
+def get_db():
+    try:
+        db = SessionLocal()
+        yield db
+    finally:
+        db.close()
 
 
 @app.get("/facebook/webhook")
@@ -90,10 +99,63 @@ async def reply(
     return ""
 
 
-# Dependency
-def get_db():
+# New endpoint for local testing without Facebook API
+@app.post("/local_test")
+async def local_test(
+    request: Request,
+    message: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Test endpoint for local development without Facebook API."""
+    test_number = "test_user_local"
+    logger.info("Local test request received", message=message)
+    
+    langchain_response = intake_agent(message)
+    reference_id = store_conversation(test_number, message, langchain_response)
+    
     try:
-        db = SessionLocal()
-        yield db
-    finally:
-        db.close()
+        conversation = Conversation(
+            sender=test_number,
+            message=reference_id,
+            response=reference_id,
+        )
+        db.add(conversation)
+        db.commit()
+        logger.info(f"Local test conversation #{conversation.id} stored in database")
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Error storing local test conversation in database: {e}")
+    
+    return {"response": langchain_response}
+
+
+# CLI function for running the chatbot in terminal
+def run_cli_chat():
+    """Run a command-line interface for the chatbot."""
+    print("Welcome to the MedBot CLI. Type 'exit' to quit.")
+    
+    while True:
+        user_input = input("\nYou: ")
+        if user_input.lower() in ["exit", "quit"]:
+            print("Goodbye!")
+            break
+            
+        # Process the input through the medical intake agent
+        response = intake_agent(user_input)
+        
+        # Store conversation (optional, can be disabled for quick testing)
+        try:
+            store_conversation("cli_user", user_input, response)
+            print(f"\nMedBot: {response}")
+        except Exception as e:
+            print(f"\nMedBot: {response}")
+            logger.error(f"Error storing CLI conversation: {e}")
+
+
+# Allow running the CLI directly
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--cli":
+        run_cli_chat()
+    else:
+        import uvicorn
+        uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

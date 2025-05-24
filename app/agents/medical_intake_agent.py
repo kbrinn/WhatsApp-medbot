@@ -13,12 +13,9 @@ from langchain.memory import ConversationBufferMemory
 from langchain.output_parsers import PydanticOutputParser
 import json
 import os
-from .schemas.patient_form import PatientHistory
-
+from .schemas.patient_form_EN import PatientHistory
 from datetime import datetime, date
-# Add this at the top of your medical_intake_agent.py file
-
-
+from .tools_agent.pdf_filler_EN import fill_pdf
 
 try:
     OPENAI_API_KEY = config("OPENAI_API_KEY")
@@ -43,7 +40,9 @@ def intake_agent(query: str, user_id: str = "default_user") -> str:
         temperature=0.0,
         openai_api_key=OPENAI_API_KEY,
     )
-    
+
+    llm_with_tools = llm.bind_tools([fill_pdf])
+
     # Set up the output parser for validation
     parser = PydanticOutputParser(pydantic_object=PatientHistory)
     
@@ -113,8 +112,9 @@ def intake_agent(query: str, user_id: str = "default_user") -> str:
             # Clear the conversation history after successful completion
             user_conversations[user_id] = []
             
-            # Return the validated JSON
-            return f"Patient intake form completed and validated:\n{validated_json}"
+            # After successfully validating:
+            pdf_path = fill_pdf(patient_data)
+            return f"Patient intake form completed and validated:\n{validated_json}\n\nPDF form generated at: {pdf_path}"
             
         except Exception as e:
             # If validation fails, return error and original output
