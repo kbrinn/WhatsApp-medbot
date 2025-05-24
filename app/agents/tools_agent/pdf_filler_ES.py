@@ -11,16 +11,36 @@ Cambios mínimos para soportar formularios en español:
     en español no hace falta mapeo adicional.
 """
 
+from dataclasses import is_dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any, Dict, Union
-from dataclasses import is_dataclass
-from pdfrw import PdfReader, PdfWriter, PdfName, PdfString, PdfObject
+
+from pdfrw import PdfName, PdfObject, PdfReader, PdfString, PdfWriter
 
 # --------------------------------------------------------------------------- #
 # 1) Tokens que activan una casilla: True/Yes/1 y sus equivalentes en español
-YES_TOKENS = {"true", "yes", "1", "si", "sí", "sí"}  # la última es “sí” con tilde combinada
+YES_TOKENS = {
+    "true",
+    "yes",
+    "1",
+    "si",
+    "sí",
+    "sí",
+}  # la última es “sí” con tilde combinada
 # --------------------------------------------------------------------------- #
+
+# Paths relative to this module
+_MODULE_DIR = Path(__file__).resolve().parent
+_DEFAULT_TEMPLATE = _MODULE_DIR / "template_forms" / "intake_form_EN.pdf"
+_DEFAULT_OUTPUT = (
+    _MODULE_DIR.parent.parent
+    / "services"
+    / "database"
+    / "data"
+    / "intake_filled_ES.pdf"
+)
+
 
 def _walk_fields(obj: Union[Dict[str, Any], Any], prefix: str = ""):
     """Produce pares (nombre_campo_pdf, valor_str) para valores primitivos."""
@@ -42,13 +62,19 @@ def _walk_fields(obj: Union[Dict[str, Any], Any], prefix: str = ""):
         else:
             yield from _walk_fields(v, prefix=f"{key}.")
 
+
 def fill_pdf(
     patient_obj: Union[Dict[str, Any], "HistorialPaciente"],
-    template_path: str = "/mnt/data/intake_template_a4_styled_v3_es.pdf",
-    output_path: str = "/mnt/data/intake_filled_ES.pdf",
+    template_path: Union[str, Path] | None = None,
+    output_path: Union[str, Path] | None = None,
 ) -> str:
-    """Llena la plantilla indicada con los datos de `patient_obj`."""
-    pdf = PdfReader(template_path)
+    """Llena la plantilla indicada con los datos de ``patient_obj``."""
+    template = Path(template_path) if template_path else _DEFAULT_TEMPLATE
+    output = Path(output_path) if output_path else _DEFAULT_OUTPUT
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    pdf = PdfReader(str(template))
     pdf.Root.NeedAppearances = PdfObject("true")
 
     annotations = {
@@ -75,5 +101,5 @@ def fill_pdf(
         annot.V = PdfString.encode(str(value))
         annot.AP = None
 
-    PdfWriter().write(output_path, pdf)
-    return str(Path(output_path).resolve())
+    PdfWriter().write(str(output), pdf)
+    return str(output.resolve())
