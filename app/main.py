@@ -3,7 +3,6 @@ import sys
 
 # Internal imports
 from agents.medical_intake_agent import intake_agent
-from decouple import config
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response
 from services.facebook_service import send_message as fb_send_message
 
@@ -13,6 +12,8 @@ from services.secure_storage import store_conversation
 from services.utils.utils import logger
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+
+from app.config import config
 
 app = FastAPI()
 

@@ -2,7 +2,8 @@ import logging
 
 import requests
 import structlog
-from decouple import config
+
+from app.config import config
 
 logger = structlog.get_logger()
 
