@@ -1,9 +1,10 @@
-#!/usr/bin/.env python3
+#!/usr/bin/env python3
 
 # Import the necessary modules
 from agents.medical_intake_agent import intake_agent
 from services.secure_storage import store_conversation
 from services.utils.utils import logger
+
 
 def run_cli_chat():
     """Run a command-line interface for the chatbot."""
@@ -25,6 +26,7 @@ def run_cli_chat():
         except Exception as e:
             print(f"\nMedBot: {response}")
             logger.error(f"Error storing CLI conversation: {e}")
+
 
 if __name__ == "__main__":
     run_cli_chat()
