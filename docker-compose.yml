@@ -6,8 +6,8 @@ services:
   # ──────────────────────────────
   app:
     build:
-      context: ..
-      dockerfile: ../Dockerfile
+      context: .
+      dockerfile: app/Dockerfile
     env_file:
       - .env
     ports:

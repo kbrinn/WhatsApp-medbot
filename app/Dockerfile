@@ -6,10 +6,11 @@ RUN pip install --no-cache-dir poetry
 # Set workdir
 WORKDIR /app
 
-# Copy project files
-COPY ../pyproject.toml poetry.lock ./
+# Copy metadata (README not needed when we skip packaging)
+COPY ../pyproject.toml ../poetry.lock ./
+
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-dev --no-interaction --no-ansi
+    && poetry install --no-interaction --no-ansi --no-root
 
 COPY .. .
 
