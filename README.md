@@ -4,7 +4,7 @@ This project provides a FastAPI application that integrates with WhatsApp and va
 
 ## Environment Variables
 
-Create a `.env` file based on the provided `.env.example` and fill in the values for your environment:
+Create a single `.env` file in the project root based on `.env.example` and fill in the values for your environment.  The application and Docker Compose will both read from this file:
 
 ```
 cp .env.example .env

@@ -2,9 +2,10 @@
 import logging
 
 import structlog
-from decouple import config
 from langchain.agents import AgentType, initialize_agent, load_tools
 from langchain_community.chat_models import ChatOpenAI
+
+from app.config import config
 
 # Third-party imports
 
