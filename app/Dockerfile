@@ -7,11 +7,11 @@ RUN pip install --no-cache-dir poetry
 WORKDIR /app
 
 # Copy project files
-COPY pyproject.toml poetry.lock ./
+COPY ../pyproject.toml poetry.lock ./
 RUN poetry config virtualenvs.create false \
     && poetry install --no-dev --no-interaction --no-ansi
 
-COPY . .
+COPY .. .
 
 EXPOSE 8000
 ENV PYTHONUNBUFFERED=1
