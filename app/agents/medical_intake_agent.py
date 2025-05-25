@@ -31,8 +31,8 @@ from .tools_agent.pdf_filler_EN import fill_pdf
 try:
     OPENAI_API_KEY = config("OPENAI_API_KEY")
 except Exception as e:
-    print(f"Error loading OPENAI_API_KEY from .env file: {e}")
-    raise SystemExit("OPENAI_API_KEY not found. Please set it in your .env file.")
+    print(f"Error loading OPENAI_API_KEY from ..env file: {e}")
+    raise SystemExit("OPENAI_API_KEY not found. Please set it in your ..env file.")
 
 
 def intake_agent(query: str, user_id: str = "default_user") -> str:

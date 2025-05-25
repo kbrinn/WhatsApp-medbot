@@ -13,7 +13,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./app:/app/app         # hot-reload / development
+      - ./app:/app
+
     environment:
       DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
       DB_USER: ${DB_USER}

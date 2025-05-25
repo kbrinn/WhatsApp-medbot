@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/.env python3
 
 # Import the necessary modules
 from agents.medical_intake_agent import intake_agent

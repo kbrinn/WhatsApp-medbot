@@ -1,111 +1,96 @@
-import psycopg2
-from psycopg2 import OperationalError
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT  # Needed for CREATE DATABASE
+from __future__ import annotations
+
+import os
+from typing import List
+
 from sqlalchemy import Column, Integer, String, create_engine
-from sqlalchemy.engine import (
-    URL as SQLAlchemy_URL,
-)  # Renamed to avoid potential naming conflicts
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-from app.config import config
+from pathlib import Path
 
-# --- Database Configuration from .env ---
-# Ensure these are set in your .env file
-DB_USER = config("DB_USER")
-DB_PASSWORD = config("DB_PASSWORD")
-DB_HOST = config("DB_HOST", default="localhost")  # Default to 'localhost' if not set
-DB_PORT = config("DB_PORT", default=5432, cast=int)  # Default to 5432 if not set
-DB_NAME = config("DB_NAME", default="medbot")  # Default to 'medbot' if not set
+from decouple import Config, RepositoryEnv
 
+# Base directory of the project (two levels up from this file)
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-# --- Function to Ensure Database Exists ---
-def ensure_database_exists():
+# ---------------------------------------------------------------------------
+# Load variables **exclusively** from the project's root `.env`.
+# RepositoryEnv ignores anything already set in os.environ, so the file
+# becomes the single source of truth for configuration.
+# ---------------------------------------------------------------------------
+ENV_FILE = BASE_DIR / ".env"
+if not ENV_FILE.exists():                     # fail fast if the file is missing
+    raise RuntimeError(f"Missing configuration file: {ENV_FILE}")
+
+config = Config(repository=RepositoryEnv(ENV_FILE))
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _build_database_url() -> str:
     """
-    Checks if the target database exists, and creates it if it doesn't.
-    Requires the DB_USER to have CREATEDB privileges.
+    Build the SQLAlchemy-compatible Postgres URL exclusively from the
+    `.env` file. If `DATABASE_URL` is present we use it verbatim; otherwise
+    the individual DB_* keys are combined. No values are read from
+    os.environ – the .env file is the single source of truth.
     """
-    pg_conn = None
-    try:
-        # Connect to the default 'postgres' database to check/create the target database
-        pg_conn = psycopg2.connect(
-            dbname="postgres",  # Standard database to connect to for admin tasks
-            user=DB_USER,
-            password=DB_PASSWORD,
-            host=DB_HOST,
-            port=DB_PORT,
+    # 1️⃣ Direct connection string in .env
+    db_url = config("DATABASE_URL", default="")
+    if db_url:
+        if not db_url.startswith("postgresql"):
+            raise RuntimeError(
+                "DATABASE_URL must start with 'postgresql://'. "
+                "Check the value in your `.env` file."
+            )
+        return db_url  # already complete
+
+    # 2️⃣ Assemble from individual settings in .env
+    required_keys: List[str] = ["DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT", "DB_NAME"]
+    missing = [key for key in required_keys if not config(key, default="")]
+    if missing:
+        raise RuntimeError(
+            f"Missing database variables in .env: {', '.join(missing)}."
         )
-        pg_conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
 
-        with pg_conn.cursor() as cur:
-            # Check if the target database exists
-            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (DB_NAME,))
-            exists = cur.fetchone()
-            if not exists:
-                print(
-                    f"Database '{DB_NAME}' does not exist. Attempting to create it..."
-                )
-                cur.execute(
-                    f"CREATE DATABASE {DB_NAME}"
-                )  # Using f-string for DB_NAME as it's from config
-                print(f"Database '{DB_NAME}' created successfully.")
-                # Optionally, grant privileges if the creator is a superuser and DB_USER is different
-                # For simplicity, this example assumes DB_USER itself has necessary future rights
-                # or they will be granted separately.
-                # Example: cur.execute(f"GRANT ALL PRIVILEGES ON DATABASE {DB_NAME} TO \"{DB_USER}\"")
-            else:
-                print(f"Database '{DB_NAME}' already exists.")
+    db_user = config("DB_USER")
+    db_password = config("DB_PASSWORD")
+    db_host = config("DB_HOST")
+    db_port = config("DB_PORT")
+    db_name = config("DB_NAME")
 
-    except OperationalError as e:
-        print(f"OperationalError during database check/creation: {e}")
-        print(
-            f"This might mean PostgreSQL server is not running, or '{DB_USER}' cannot connect to 'postgres' database, or lacks CREATEDB privilege."
-        )
-        print(
-            "Please ensure PostgreSQL is running and the user has appropriate permissions, or create the database manually."
-        )
-        # For a robust application, you might want to raise the error or exit here
-    except Exception as e:
-        print(f"An unexpected error occurred during database check/creation: {e}")
-    finally:
-        if pg_conn:
-            pg_conn.close()
+    return f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
 
-# --- Ensure Database Exists Before SQLAlchemy Setup ---
-ensure_database_exists()
+# ---------------------------------------------------------------------------
+# SQLAlchemy setup
+# ---------------------------------------------------------------------------
 
-# --- SQLAlchemy Setup ---
-# This will connect to the specific database (DB_NAME)
-sqlalchemy_database_url = SQLAlchemy_URL.create(
-    drivername="postgresql+psycopg2",  # Specify psycopg2 as the driver for SQLAlchemy
-    username=DB_USER,
-    password=DB_PASSWORD,
-    host=DB_HOST,
-    database=DB_NAME,  # Connect to your application's database
-    port=DB_PORT,
-)
+try:
+    DATABASE_URL = _build_database_url()
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    # Trigger an immediate connection to surface configuration errors early
+    with engine.connect():  # noqa: WPS316
+        pass
+except OperationalError as exc:
+    raise RuntimeError(
+        "Could not connect to the PostgreSQL database. "
+        "Confirm that the 'db' service is up and the credentials are correct."
+    ) from exc
 
-engine = create_engine(sqlalchemy_database_url)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 Base = declarative_base()
+
+# ---------------------------------------------------------------------------
+# ORM models
+# ---------------------------------------------------------------------------
 
 
 class Conversation(Base):
     __tablename__ = "conversations"
 
     id = Column(Integer, primary_key=True, index=True)
-    sender = Column(String)
-    message = Column(String)
+    sender = Column(String, nullable=False)
+    message = Column(String, nullable=False)
     response = Column(String)
-
-
-# --- Create Tables in the Database ---
-# This attempts to create the tables defined above (e.g., "conversations")
-# if they don't already exist in the connected database.
-try:
-    print(f"Attempting to create tables in database '{DB_NAME}' if they don't exist...")
-    Base.metadata.create_all(bind=engine)
-    print(f"Tables checked/created successfully in database '{DB_NAME}'.")
-except Exception as e:
-    print(f"Error creating tables in database '{DB_NAME}' with SQLAlchemy: {e}")
-    print("Please check your SQLAlchemy models and database connection.")
