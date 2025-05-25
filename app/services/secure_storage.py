@@ -1,28 +1,33 @@
-import json
-import uuid
-from pathlib import Path
-from typing import Dict
+"""Utility for storing conversations in the database."""
 
-SECURE_STORAGE_PATH = Path("secure_storage.json")
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
-
-def _load_storage() -> Dict[str, Dict[str, str]]:
-    if SECURE_STORAGE_PATH.exists():
-        try:
-            return json.loads(SECURE_STORAGE_PATH.read_text())
-        except Exception:
-            return {}
-    return {}
+from .models.models import Conversation, SessionLocal
 
 
-def _save_storage(data: Dict[str, Dict[str, str]]) -> None:
-    SECURE_STORAGE_PATH.write_text(json.dumps(data))
+def store_conversation(
+    sender: str,
+    message: str,
+    response: str,
+    db: Session | None = None,
+) -> int:
+    """Persist a conversation to the database and return the row ID."""
 
+    created_session = False
+    if db is None:
+        db = SessionLocal()
+        created_session = True
 
-def store_conversation(sender: str, message: str, response: str) -> str:
-    """Persist message and response in protected storage and return a reference ID."""
-    storage = _load_storage()
-    ref_id = str(uuid.uuid4())
-    storage[ref_id] = {"sender": sender, "message": message, "response": response}
-    _save_storage(storage)
-    return ref_id
+    try:
+        conversation = Conversation(sender=sender, message=message, response=response)
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+        return conversation.id
+    except SQLAlchemyError:
+        db.rollback()
+        raise
+    finally:
+        if created_session:
+            db.close()

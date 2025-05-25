@@ -1,5 +1,6 @@
 # Third-party imports
 import sys
+
 # Internal imports
 from agents.medical_intake_agent import intake_agent
 from decouple import config
@@ -7,13 +8,14 @@ from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response
 from services.facebook_service import send_message as fb_send_message
 
 # Relative imports since main.py is in the same directory as services
-from services.models.models import Conversation, SessionLocal
+from services.models.models import SessionLocal
 from services.secure_storage import store_conversation
 from services.utils.utils import logger
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 app = FastAPI()
+
 
 # Dependency
 def get_db():
@@ -48,22 +50,15 @@ async def facebook_webhook(request: Request, db: Session = Depends(get_db)):
                 if not whatsapp_number or not text:
                     continue
                 langchain_response = intake_agent(text)
-                reference_id = store_conversation(
-                    whatsapp_number,
-                    text,
-                    langchain_response,
-                )
                 try:
-                    conversation = Conversation(
-                        sender=whatsapp_number,
-                        message=reference_id,
-                        response=reference_id,
+                    conversation_id = store_conversation(
+                        whatsapp_number,
+                        text,
+                        langchain_response,
+                        db,
                     )
-                    db.add(conversation)
-                    db.commit()
-                    logger.info(f"Conversation #{conversation.id} stored in database")
+                    logger.info(f"Conversation #{conversation_id} stored in database")
                 except SQLAlchemyError as e:
-                    db.rollback()
                     logger.error(f"Error storing conversation in database: {e}")
                 fb_send_message(whatsapp_number, langchain_response)
     return ""
@@ -82,18 +77,12 @@ async def reply(
     masked_number = f"{whatsapp_number[:2]}***"
     logger.info("send_response", to=masked_number)
     langchain_response = intake_agent(Body)
-    reference_id = store_conversation(whatsapp_number, Body, langchain_response)
     try:
-        conversation = Conversation(
-            sender=whatsapp_number,
-            message=reference_id,
-            response=reference_id,
+        conversation_id = store_conversation(
+            whatsapp_number, Body, langchain_response, db
         )
-        db.add(conversation)
-        db.commit()
-        logger.info(f"Conversation #{conversation.id} stored in database")
+        logger.info(f"Conversation #{conversation_id} stored in database")
     except SQLAlchemyError as e:  # pragma: no cover - DB issues are unlikely
-        db.rollback()
         logger.error(f"Error storing conversation in database: {e}")
     fb_send_message(whatsapp_number, langchain_response)
     return ""
@@ -109,23 +98,16 @@ async def local_test(
     """Test endpoint for local development without Facebook API."""
     test_number = "test_user_local"
     logger.info("Local test request received", message=message)
-    
+
     langchain_response = intake_agent(message)
-    reference_id = store_conversation(test_number, message, langchain_response)
-    
     try:
-        conversation = Conversation(
-            sender=test_number,
-            message=reference_id,
-            response=reference_id,
+        conversation_id = store_conversation(
+            test_number, message, langchain_response, db
         )
-        db.add(conversation)
-        db.commit()
-        logger.info(f"Local test conversation #{conversation.id} stored in database")
+        logger.info(f"Local test conversation #{conversation_id} stored in database")
     except SQLAlchemyError as e:
-        db.rollback()
         logger.error(f"Error storing local test conversation in database: {e}")
-    
+
     return {"response": langchain_response}
 
 
@@ -133,16 +115,16 @@ async def local_test(
 def run_cli_chat():
     """Run a command-line interface for the chatbot."""
     print("Welcome to the MedBot CLI. Type 'exit' to quit.")
-    
+
     while True:
         user_input = input("\nYou: ")
         if user_input.lower() in ["exit", "quit"]:
             print("Goodbye!")
             break
-            
+
         # Process the input through the medical intake agent
         response = intake_agent(user_input)
-        
+
         # Store conversation (optional, can be disabled for quick testing)
         try:
             store_conversation("cli_user", user_input, response)
@@ -158,4 +140,5 @@ if __name__ == "__main__":
         run_cli_chat()
     else:
         import uvicorn
+
         uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
