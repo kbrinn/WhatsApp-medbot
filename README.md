@@ -11,6 +11,8 @@ WhatsApp MedBot is a small FastAPI service that uses OpenAI via LangChain to col
 - Optional **CLI** interface for manual testing (`python -m app.run_cli_chat`).
 
 See `docs/security.md` for details on how PHI is kept out of the database.
+See `docs/architecture.md` for a high-level overview of the project layout.
+See `docs/improvements.md` for recommended next steps before production.
 
 ## Setup
 
