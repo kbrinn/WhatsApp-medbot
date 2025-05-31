@@ -2,14 +2,14 @@
 import sys
 
 # Internal imports
-from agents.medical_intake_agent import intake_agent
+from .agents.medical_intake_agent import intake_agent
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response
-from services.facebook_service import send_message as fb_send_message
+from .services.facebook_service import send_message as fb_send_message
 
 # Relative imports since main.py is in the same directory as services
-from services.models.models import SessionLocal
-from services.secure_storage import store_conversation
-from services.utils.utils import logger
+from .services.models.models import SessionLocal
+from .services.secure_storage import store_conversation
+from .services.utils.utils import logger
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 

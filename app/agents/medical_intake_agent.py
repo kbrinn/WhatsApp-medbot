@@ -1,12 +1,17 @@
 # Add this at the top of your medical_intake_agent.py file
+import uuid
 from typing import Any, Dict, List
-
 # Global dictionary to store conversation history by user ID
 user_conversations: Dict[str, List[Any]] = {}
 import json
 import os
 from datetime import date, datetime
 from pathlib import Path
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
+from app.services.utils.utils import logger
+from app.services.models.models import SessionLocal
+from app.services.secure_storage import  store_patient
 
 from langchain.agents import (
     AgentExecutor,
@@ -33,6 +38,14 @@ try:
 except Exception as e:
     print(f"Error loading OPENAI_API_KEY from ..env file: {e}")
     raise SystemExit("OPENAI_API_KEY not found. Please set it in your ..env file.")
+
+
+def get_db():
+    try:
+        db = SessionLocal()
+        yield db
+    finally:
+        db.close()
 
 
 def intake_agent(query: str, user_id: str = "default_user") -> str:
@@ -125,6 +138,22 @@ def intake_agent(query: str, user_id: str = "default_user") -> str:
             # Convert back to JSON string for output
             validated_json = patient_data.model_dump_json(indent=2)
             print(f"Successfully validated patient data against schema")
+
+            #Insert patient's information into database table
+
+            try:
+                patient_row_id = store_patient(
+           #         patient_id=uuid.UUID(patient_data_dict["patient_id"]),
+                    full_name=patient_data_dict["full_name"],
+                    date_of_birth=patient_data_dict["dob"],
+                    phone_e164=patient_data_dict["phone_e164"],
+                    email=patient_data_dict.get("email"),
+                    address_json=patient_data_dict.get("address")
+                )
+
+                logger.info(f"Conversation #{patient_row_id} stored in database")
+            except SQLAlchemyError as e:
+                logger.error(f"Error storing conversation in database: {e}")
 
             # Clear the conversation history after successful completion
             user_conversations[user_id] = []

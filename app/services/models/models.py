@@ -3,27 +3,26 @@ from __future__ import annotations
 import os
 from typing import List
 
-from sqlalchemy import Column, Integer, String, create_engine
+from pydantic import UUID1
+from sqlalchemy import Column, Integer, String, create_engine, DateTime, Date, JSON, UUID
+from sqlalchemy.dialects.postgresql import BYTEA
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from pathlib import Path
 
-from decouple import Config, RepositoryEnv
+from decouple import Config, RepositoryEnv, AutoConfig
 
 # Base directory of the project (two levels up from this file)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ---------------------------------------------------------------------------
-# Load variables **exclusively** from the project's root `.env`.
-# RepositoryEnv ignores anything already set in os.environ, so the file
-# becomes the single source of truth for configuration.
-# ---------------------------------------------------------------------------
-ENV_FILE = BASE_DIR / ".env"
-if not ENV_FILE.exists():                     # fail fast if the file is missing
-    raise RuntimeError(f"Missing configuration file: {ENV_FILE}")
+# ENV_FILE = BASE_DIR / ".env"
+# if not ENV_FILE.exists():                     # fail fast if the file is missing
+#     raise RuntimeError(f"Missing configuration file: {ENV_FILE}")
+#
+# config = Config(repository=RepositoryEnv(ENV_FILE))
+config = AutoConfig(search_path=BASE_DIR)
 
-config = Config(repository=RepositoryEnv(ENV_FILE))
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -94,3 +93,14 @@ class Conversation(Base):
     sender = Column(String, nullable=False)
     message = Column(String, nullable=False)
     response = Column(String)
+
+class Patient(Base):
+    __tablename__ = "patient"
+    patient_id = Column(UUID, primary_key=True, index=True)
+    full_name = Column(BYTEA, nullable=False)
+    date_of_birth = Column(Date, nullable=False)
+    phone_e164 = Column(String, nullable=False)
+    email = Column(String, nullable=True)
+    address_json = Column(JSON, nullable=True)
+
+
