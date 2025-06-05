@@ -1,11 +1,13 @@
 """Utility for storing conversations in the database."""
+
+import uuid
 from datetime import date
-import uuid,json
 from typing import Any
+
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from .models.models import Conversation, SessionLocal, Patient
+from .models.models import Conversation, Patient, SessionLocal
 
 
 def store_conversation(
@@ -36,13 +38,14 @@ def store_conversation(
 
 
 def store_patient(
-        patient_id: uuid.UUID | str,
-        full_name: bytes,
-        date_of_birth: date,
-        phone_e164: str,
-        email: str | None,
-        address_json: dict[str, Any] | str,
-        db:Session | None = None) -> uuid.UUID:
+    patient_id: uuid.UUID | str,
+    full_name: bytes,
+    date_of_birth: date,
+    phone_e164: str,
+    email: str | None,
+    address_json: dict[str, Any] | str,
+    db: Session | None = None,
+) -> uuid.UUID:
 
     created_session = False
     if db is None:
@@ -51,8 +54,14 @@ def store_patient(
 
     try:
         id_ = uuid.UUID(str(patient_id))
-        patient = Patient(patient_id = id_, full_name = full_name, date_of_birth = date_of_birth,
-                          phone_e164 = phone_e164, email = email, address_json = address_json)
+        patient = Patient(
+            patient_id=id_,
+            full_name=full_name,
+            date_of_birth=date_of_birth,
+            phone_e164=phone_e164,
+            email=email,
+            address_json=address_json,
+        )
         db.add(patient)
         db.commit()
         db.refresh(patient)
@@ -65,4 +74,3 @@ def store_patient(
     finally:
         if created_session:
             db.close()
-
