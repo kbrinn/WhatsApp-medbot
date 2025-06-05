@@ -1,34 +1,29 @@
 # Add this at the top of your medical_intake_agent.py file
 import uuid
 from typing import Any, Dict, List
-# Global dictionary to store conversation history by user ID
+
+# Global dictionaries to store conversation history and patient IDs by user
 user_conversations: Dict[str, List[Any]] = {}
+user_patient_ids: Dict[str, uuid.UUID] = {}
 import json
 import os
 from datetime import date, datetime
 from pathlib import Path
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
-from app.services.utils.utils import logger
-from app.services.models.models import SessionLocal
-from app.services.secure_storage import  store_patient
 
-from langchain.agents import (
-    AgentExecutor,
-    AgentType,
-    create_react_agent,
-    initialize_agent,
-)
+from langchain.agents import (AgentExecutor, AgentType, create_react_agent,
+                              initialize_agent)
 from langchain.memory import ConversationBufferMemory
 from langchain.output_parsers import PydanticOutputParser
-from langchain_core.prompts import (
-    ChatPromptTemplate,
-    MessagesPlaceholder,
-    PromptTemplate,
-)
+from langchain_core.prompts import (ChatPromptTemplate, MessagesPlaceholder,
+                                    PromptTemplate)
 from langchain_openai import ChatOpenAI
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from app.config import config
+from app.services.models.models import SessionLocal
+from app.services.secure_storage import store_patient
+from app.services.utils.utils import logger
 
 from .schemas.patient_form_EN import PatientHistory
 from .tools_agent.pdf_filler_EN import fill_pdf
@@ -139,21 +134,21 @@ def intake_agent(query: str, user_id: str = "default_user") -> str:
             validated_json = patient_data.model_dump_json(indent=2)
             print(f"Successfully validated patient data against schema")
 
-            #Insert patient's information into database table
+            # Insert patient's information into database table
 
             try:
                 patient_row_id = store_patient(
-           #         patient_id=uuid.UUID(patient_data_dict["patient_id"]),
                     full_name=patient_data_dict["full_name"],
                     date_of_birth=patient_data_dict["dob"],
                     phone_e164=patient_data_dict["phone_e164"],
                     email=patient_data_dict.get("email"),
-                    address_json=patient_data_dict.get("address")
+                    address_json=patient_data_dict.get("address"),
                 )
 
-                logger.info(f"Conversation #{patient_row_id} stored in database")
+                user_patient_ids[user_id] = patient_row_id
+                logger.info(f"Patient {patient_row_id} stored in database")
             except SQLAlchemyError as e:
-                logger.error(f"Error storing conversation in database: {e}")
+                logger.error(f"Error storing patient in database: {e}")
 
             # Clear the conversation history after successful completion
             user_conversations[user_id] = []

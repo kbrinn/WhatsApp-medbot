@@ -1,19 +1,19 @@
 # Third-party imports
 import sys
 
-# Internal imports
-from .agents.medical_intake_agent import intake_agent
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response
-from .services.facebook_service import send_message as fb_send_message
-
-# Relative imports since main.py is in the same directory as services
-from .services.models.models import SessionLocal
-from .services.secure_storage import store_conversation
-from .services.utils.utils import logger
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.config import config
+
+# Internal imports
+from .agents.medical_intake_agent import intake_agent, user_patient_ids
+from .services.facebook_service import send_message as fb_send_message
+# Relative imports since main.py is in the same directory as services
+from .services.models.models import SessionLocal
+from .services.secure_storage import store_conversation
+from .services.utils.utils import logger
 
 app = FastAPI()
 
@@ -50,17 +50,21 @@ async def facebook_webhook(request: Request, db: Session = Depends(get_db)):
                 text = message.get("text", {}).get("body", "")
                 if not whatsapp_number or not text:
                     continue
-                langchain_response = intake_agent(text)
-                try:
-                    conversation_id = store_conversation(
-                        whatsapp_number,
-                        text,
-                        langchain_response,
-                        db,
-                    )
-                    logger.info(f"Conversation #{conversation_id} stored in database")
-                except SQLAlchemyError as e:
-                    logger.error(f"Error storing conversation in database: {e}")
+                langchain_response = intake_agent(text, user_id=whatsapp_number)
+                if whatsapp_number in user_patient_ids:
+                    try:
+                        conversation_id = store_conversation(
+                            whatsapp_number,
+                            text,
+                            langchain_response,
+                            db,
+                            patient_id=user_patient_ids[whatsapp_number],
+                        )
+                        logger.info(
+                            f"Conversation #{conversation_id} stored in database"
+                        )
+                    except SQLAlchemyError as e:
+                        logger.error(f"Error storing conversation in database: {e}")
                 fb_send_message(whatsapp_number, langchain_response)
     return ""
 
@@ -77,14 +81,19 @@ async def reply(
     whatsapp_number = From.split("whatsapp:")[-1]
     masked_number = f"{whatsapp_number[:2]}***"
     logger.info("send_response", to=masked_number)
-    langchain_response = intake_agent(Body)
-    try:
-        conversation_id = store_conversation(
-            whatsapp_number, Body, langchain_response, db
-        )
-        logger.info(f"Conversation #{conversation_id} stored in database")
-    except SQLAlchemyError as e:  # pragma: no cover - DB issues are unlikely
-        logger.error(f"Error storing conversation in database: {e}")
+    langchain_response = intake_agent(Body, user_id=whatsapp_number)
+    if whatsapp_number in user_patient_ids:
+        try:
+            conversation_id = store_conversation(
+                whatsapp_number,
+                Body,
+                langchain_response,
+                db,
+                patient_id=user_patient_ids[whatsapp_number],
+            )
+            logger.info(f"Conversation #{conversation_id} stored in database")
+        except SQLAlchemyError as e:  # pragma: no cover - DB issues are unlikely
+            logger.error(f"Error storing conversation in database: {e}")
     fb_send_message(whatsapp_number, langchain_response)
     return ""
 
@@ -100,14 +109,21 @@ async def local_test(
     test_number = "test_user_local"
     logger.info("Local test request received", message=message)
 
-    langchain_response = intake_agent(message)
-    try:
-        conversation_id = store_conversation(
-            test_number, message, langchain_response, db
-        )
-        logger.info(f"Local test conversation #{conversation_id} stored in database")
-    except SQLAlchemyError as e:
-        logger.error(f"Error storing local test conversation in database: {e}")
+    langchain_response = intake_agent(message, user_id=test_number)
+    if test_number in user_patient_ids:
+        try:
+            conversation_id = store_conversation(
+                test_number,
+                message,
+                langchain_response,
+                db,
+                patient_id=user_patient_ids[test_number],
+            )
+            logger.info(
+                f"Local test conversation #{conversation_id} stored in database"
+            )
+        except SQLAlchemyError as e:
+            logger.error(f"Error storing local test conversation in database: {e}")
 
     return {"response": langchain_response}
 
@@ -124,15 +140,23 @@ def run_cli_chat():
             break
 
         # Process the input through the medical intake agent
-        response = intake_agent(user_input)
+        response = intake_agent(user_input, user_id="cli_user")
 
-        # Store conversation (optional, can be disabled for quick testing)
-        try:
-            store_conversation("cli_user", user_input, response)
+        # Store conversation only after patient is registered
+        if "cli_user" in user_patient_ids:
+            try:
+                store_conversation(
+                    "cli_user",
+                    user_input,
+                    response,
+                    patient_id=user_patient_ids["cli_user"],
+                )
+                print(f"\nMedBot: {response}")
+            except Exception as e:
+                print(f"\nMedBot: {response}")
+                logger.error(f"Error storing CLI conversation: {e}")
+        else:
             print(f"\nMedBot: {response}")
-        except Exception as e:
-            print(f"\nMedBot: {response}")
-            logger.error(f"Error storing CLI conversation: {e}")
 
 
 # Allow running the CLI directly

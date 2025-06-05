@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import List
 
-from pydantic import UUID1
-from sqlalchemy import Column, Integer, String, create_engine, DateTime, Date, JSON, UUID
+from decouple import AutoConfig, Config, RepositoryEnv
+from sqlalchemy import (JSON, UUID, Column, Date, DateTime, Integer, String,
+                        create_engine, text)
 from sqlalchemy.dialects.postgresql import BYTEA
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import declarative_base, sessionmaker
-
-from pathlib import Path
-
-from decouple import Config, RepositoryEnv, AutoConfig
 
 # Base directory of the project (two levels up from this file)
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,6 +24,7 @@ config = AutoConfig(search_path=BASE_DIR)
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _build_database_url() -> str:
     """
@@ -46,12 +44,16 @@ def _build_database_url() -> str:
         return db_url  # already complete
 
     # 2️⃣ Assemble from individual settings in .env
-    required_keys: List[str] = ["DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT", "DB_NAME"]
+    required_keys: List[str] = [
+        "DB_USER",
+        "DB_PASSWORD",
+        "DB_HOST",
+        "DB_PORT",
+        "DB_NAME",
+    ]
     missing = [key for key in required_keys if not config(key, default="")]
     if missing:
-        raise RuntimeError(
-            f"Missing database variables in .env: {', '.join(missing)}."
-        )
+        raise RuntimeError(f"Missing database variables in .env: {', '.join(missing)}.")
 
     db_user = config("DB_USER")
     db_password = config("DB_PASSWORD")
@@ -59,7 +61,9 @@ def _build_database_url() -> str:
     db_port = config("DB_PORT")
     db_name = config("DB_NAME")
 
-    return f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    return (
+        f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -90,17 +94,20 @@ class Conversation(Base):
     __tablename__ = "conversations"
 
     id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(UUID, nullable=True)
     sender = Column(String, nullable=False)
     message = Column(String, nullable=False)
     response = Column(String)
+    created_at = Column(DateTime, server_default=text("now()"))
+
 
 class Patient(Base):
     __tablename__ = "patient"
-    patient_id = Column(UUID, primary_key=True, index=True)
+    patient_id = Column(
+        UUID, primary_key=True, index=True, server_default=text("uuid_generate_v4()")
+    )
     full_name = Column(BYTEA, nullable=False)
     date_of_birth = Column(Date, nullable=False)
     phone_e164 = Column(String, nullable=False)
     email = Column(String, nullable=True)
     address_json = Column(JSON, nullable=True)
-
-

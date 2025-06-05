@@ -23,7 +23,7 @@ async def override_get_db():
 
 def setup_test(monkeypatch):
     app.dependency_overrides[get_db] = override_get_db
-    monkeypatch.setattr("app.main.intake_agent", lambda body: "ok")
+    monkeypatch.setattr("app.main.intake_agent", lambda *_, **__: "ok")
     monkeypatch.setattr("app.main.fb_send_message", lambda *_, **__: None)
     monkeypatch.setattr("app.main.store_conversation", lambda *_, **__: 1)
 

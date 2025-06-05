@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Import the necessary modules
-from .agents.medical_intake_agent import intake_agent
+from .agents.medical_intake_agent import intake_agent, user_patient_ids
 from .services.secure_storage import store_conversation
 from .services.utils.utils import logger
 
@@ -17,15 +17,22 @@ def run_cli_chat():
             break
 
         # Process the input through the medical intake agent
-        response = intake_agent(user_input)
+        response = intake_agent(user_input, user_id="cli_user")
 
-        # Store conversation (optional, can be disabled for quick testing)
-        try:
-            store_conversation("cli_user", user_input, response)
+        if "cli_user" in user_patient_ids:
+            try:
+                store_conversation(
+                    "cli_user",
+                    user_input,
+                    response,
+                    patient_id=user_patient_ids["cli_user"],
+                )
+                print(f"\nMedBot: {response}")
+            except Exception as e:
+                print(f"\nMedBot: {response}")
+                logger.error(f"Error storing CLI conversation: {e}")
+        else:
             print(f"\nMedBot: {response}")
-        except Exception as e:
-            print(f"\nMedBot: {response}")
-            logger.error(f"Error storing CLI conversation: {e}")
 
 
 if __name__ == "__main__":
