@@ -1,6 +1,10 @@
-from fastapi.testclient import TestClient
+import os
 
-from app.main import app, get_db
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")  # noqa: E402
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from app.main import app, get_db  # noqa: E402
 
 
 class DummyDB:

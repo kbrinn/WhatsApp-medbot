@@ -21,9 +21,9 @@ user_conversations: Dict[str, List[Any]] = {}
 
 try:
     OPENAI_API_KEY = config("OPENAI_API_KEY")
-except Exception as e:
+except Exception as e:  # pragma: no cover - tested via fallback
     print(f"Error loading OPENAI_API_KEY from ..env file: {e}")
-    raise SystemExit("OPENAI_API_KEY not found. Please set it in your ..env file.")
+    OPENAI_API_KEY = ""
 
 
 def get_db():
@@ -45,6 +45,9 @@ def intake_agent(query: str, user_id: str = "default_user") -> str:
     Returns:
         A response message from the agent, or validated patient data in JSON format when completed
     """
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY is not configured")
+
     llm = ChatOpenAI(
         model="gpt-4o-mini",
         temperature=0.0,
