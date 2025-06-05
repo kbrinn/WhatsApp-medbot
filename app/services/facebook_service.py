@@ -1,5 +1,3 @@
-import logging
-
 import requests
 import structlog
 
@@ -7,8 +5,8 @@ from app.config import config
 
 logger = structlog.get_logger()
 
-ACCESS_TOKEN = config("FB_ACCESS_TOKEN")
-PHONE_NUMBER_ID = config("FB_PHONE_NUMBER_ID")
+ACCESS_TOKEN = config("FB_ACCESS_TOKEN", default="")
+PHONE_NUMBER_ID = config("FB_PHONE_NUMBER_ID", default="")
 
 
 def send_message(to_number: str, body_text: str) -> None:
